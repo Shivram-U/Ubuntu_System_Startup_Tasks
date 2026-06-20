@@ -1,5 +1,5 @@
 ### Linux startup procedure setup script ###
-echo "Linux startup procedure setup script\n\n";
+echo -e "Linux startup procedure setup script\n\n";
 
 # Setup directory
 INSTL_DIR="/system_startup_tasks";
@@ -10,26 +10,44 @@ mkdir -p $INSTL_DIR/;
 VAR1="SYSTEM_STARTUP_TASKS_SRC";
 VAR2="SYSTEM_STARTUP_TASKS_EXEC";
 
-FILE="/etc/environment";
+VAR_FILE="/etc/environment";
 
 # Remove existing entry if present
-sudo sed -i "/^export $VAR1=/d" "$FILE" 2>/dev/null
-sudo sed -i "/^export $VAR2=/d" "$FILE" 2>/dev/null
+# grep -q "^${VAR1}=" /etc/environment && echo "Present" || echo "Not present"
 
-echo "$VAR1=\"/system_startup_tasks\"" | sudo tee -a /etc/environment > /dev/null
-echo "$VAR2=\"/usr/local/bin/system_startup_tasks.sh\"" | sudo tee -a /etc/environment > /dev/null
+sudo sed -i "/^${VAR1}=/d" "$VAR_FILE";
+sudo sed -i "/^${VAR2}=/d" "$VAR_FILE";
+
+echo "$VAR1=\"$INSTL_DIR\"" | sudo tee -a $VAR_FILE > /dev/null
+echo "$VAR2=\"$INSTL_DIR/system_startup_tasks.sh\"" | sudo tee -a $VAR_FILE > /dev/null
+
+source "$VAR_FILE";
 
 # Setup
-cp src/* SYSTEM_STARTUP;
+cp -r src/* "$SYSTEM_STARTUP_TASKS_SRC";
 
-chmod SYSTEM_STARTUP/*;
+chmod -R +x "$SYSTEM_STARTUP_TASKS_SRC"/*;
 
 # Startup script setup
 
-bash -c 'echo -e "[Unit]\nDescription=System Startup Procedure\n\n[Service]\nExecStart=/usr/local/bin/system_startup/startup.sh\nRestart=always\n\n[Install]\nWantedBy=multi-user.target" > /etc/systemd/system/system_startup.service && systemctl daemon-reexec && systemctl enable system_startup.service'
+#!/bin/bash
+
+mkdir -p /etc/xdg/autostart
+
+sudo tee /etc/xdg/autostart/system_startup_tasks.desktop > /dev/null <<EOF
+[Desktop Entry]
+Type=Application
+Name=System Startup Tasks
+Exec=gnome-terminal -- bash -c "$SYSTEM_STARTUP_TASKS_EXEC; exec bash"
+Terminal=false
+X-GNOME-Autostart-enabled=true
+EOF
+
+# bash -c 'echo -e "[Unit]\nDescription=System Startup Procedure\n\n[Service]\nExecStart=$SYSTEM_STARTUP_TASKS_SRC/system_startup_tasks.sh\nRestart=always\n\n[Install]\nWantedBy=multi-user.target" > /etc/systemd/system/system_startup.service && systemctl daemon-reexec && systemctl enable system_startup.service'
 
 # Start the system startup service to execute the startup script during system boot
-systemctl start system_startup.service;
+# systemctl start system_startup.service;
 
-echo "\n\nsetup completed";
+
+echo -e "\n\nsetup completed";
 
